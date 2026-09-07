@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.smoke_ingest import ingest_year_range
-from scripts.smoke_prequential_sample import (
+from smoke_ingest import ingest_year_range
+from smoke_prequential_sample import (
     select_smoke_tournaments,
     smoke_metric_summary,
 )
