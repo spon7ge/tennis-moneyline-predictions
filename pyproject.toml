@@ -9,6 +9,7 @@ description = "Tennis moneyline research package — P(A wins | match completes)
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "pandas>=2.0",
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
 ]
