@@ -74,6 +74,22 @@ def test_coverage_report_counts_common_eligible_rows() -> None:
     assert report["coverage"]["p_b2"] == pytest.approx(2 / 3)
 
 
+def test_coverage_report_groups_prediction_regime_once() -> None:
+    frame = pd.DataFrame(
+        {
+            "prediction_regime": ["pre_tournament", "pre_tournament"],
+            "p_b0": [0.6, np.nan],
+            "p_b1": [0.5, 0.5],
+            "p_b2": [0.55, 0.45],
+        }
+    )
+
+    report = coverage_report(frame, ["p_b0", "p_b1", "p_b2"])
+
+    assert report["by_regime"]["pre_tournament"]["n_total"] == 2
+    assert "by_regime" not in report["by_regime"]["pre_tournament"]
+
+
 def test_calibration_intercept_slope_recovers_near_identity() -> None:
     rng = np.random.default_rng(0)
     logits = rng.normal(0.0, 1.0, size=300)

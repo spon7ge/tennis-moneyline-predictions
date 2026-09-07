@@ -79,7 +79,9 @@ def coverage_report(df: pd.DataFrame, model_cols: list[str] | tuple[str, ...]) -
     }
     if "prediction_regime" in df.columns:
         report["by_regime"] = {
-            str(regime): coverage_report(group, model_cols)
+            str(regime): coverage_report(
+                group.drop(columns=["prediction_regime"]), model_cols
+            )
             for regime, group in df.groupby("prediction_regime", sort=False)
         }
     return report
