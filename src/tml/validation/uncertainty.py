@@ -148,22 +148,18 @@ def _target_probability(
     return float(predict_proba(model, features)[0])
 
 
-def pipeline_block_bootstrap_p(
+def _bootstrap_states(
     history_matches: pd.DataFrame,
     target_match_ids: Iterable[Hashable],
-    B: int = 50,
-    block_days: int = 21,
-    seed: int = 0,
+    B: int,
+    block_days: int,
+    seed: int,
     *,
-    include_supervised: bool = False,
-) -> dict[Hashable, list[float]]:
-    """Refit chronological pipeline draws from resampled calendar blocks.
-
-    Calendar blocks are sampled with replacement and stitched in draw order.
-    Every tournament is replayed as a batch through a fresh Elo state.
-    With ``include_supervised=True``, B2 is also refit from replay-frozen
-    features; the default returns the faster Elo-only B1 draws.
-    """
+    include_supervised: bool,
+) -> tuple[
+    list[Hashable],
+    list[tuple[pd.Series, EloState, pd.DataFrame, B2Model | None]],
+]:
     if isinstance(B, bool) or not isinstance(B, int) or B < 1:
         raise ValueError("B must be a positive integer")
     if (
@@ -189,7 +185,8 @@ def pipeline_block_bootstrap_p(
     targets = indexed.loc[ids]
     if isinstance(targets, pd.Series):
         targets = targets.to_frame().T
-    draws: dict[Hashable, list[float]] = {match_id: [] for match_id in ids}
+
+    draws: list[tuple[pd.Series, EloState, pd.DataFrame, B2Model | None]] = []
     rng = np.random.default_rng(seed)
 
     for target_date, cutoff_targets in targets.groupby(
@@ -210,8 +207,69 @@ def pipeline_block_bootstrap_p(
                 include_supervised=include_supervised,
             )
             for _, target in cutoff_targets.iterrows():
-                probability = _target_probability(
-                    target, state, replay_history, model
-                )
-                draws[target["match_id"]].append(float(probability))
+                draws.append((target, state, replay_history, model))
+    return ids, draws
+
+
+def pipeline_block_bootstrap_p(
+    history_matches: pd.DataFrame,
+    target_match_ids: Iterable[Hashable],
+    B: int = 50,
+    block_days: int = 21,
+    seed: int = 0,
+    *,
+    include_supervised: bool = False,
+) -> dict[Hashable, list[float]]:
+    """Refit chronological pipeline draws from resampled calendar blocks.
+
+    Calendar blocks are sampled with replacement and stitched in draw order.
+    Every tournament is replayed as a batch through a fresh Elo state.
+    With ``include_supervised=True``, B2 is also refit from replay-frozen
+    features; the default returns the faster Elo-only B1 draws.
+    """
+    ids, bootstrap_draws = _bootstrap_states(
+        history_matches,
+        target_match_ids,
+        B,
+        block_days,
+        seed,
+        include_supervised=include_supervised,
+    )
+    draws: dict[Hashable, list[float]] = {match_id: [] for match_id in ids}
+    for target, state, replay_history, model in bootstrap_draws:
+        probability = _target_probability(
+            target, state, replay_history, model
+        )
+        draws[target["match_id"]].append(float(probability))
+    return draws
+
+
+def pipeline_block_bootstrap_joint_ratings(
+    history_matches: pd.DataFrame,
+    target_match_ids: Iterable[Hashable],
+    B: int = 50,
+    block_days: int = 21,
+    seed: int = 0,
+) -> dict[Hashable, list[tuple[float, float]]]:
+    """Joint surface-Elo ratings (R_A, R_B) from the same pipeline bootstrap draws.
+
+    Ratings come from the Elo state after each resampled history replay, on the
+    target match's surface. Pairs are joint — not independent marginal samples.
+    """
+    ids, bootstrap_draws = _bootstrap_states(
+        history_matches,
+        target_match_ids,
+        B,
+        block_days,
+        seed,
+        include_supervised=False,
+    )
+    draws: dict[Hashable, list[tuple[float, float]]] = {
+        match_id: [] for match_id in ids
+    }
+    for target, state, _replay_history, _model in bootstrap_draws:
+        surface = str(target["surface"])
+        rating_a = float(state.get(target["player_a_id"], surface))
+        rating_b = float(state.get(target["player_b_id"], surface))
+        draws[target["match_id"]].append((rating_a, rating_b))
     return draws

@@ -8,7 +8,10 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from tml.validation.uncertainty import pipeline_block_bootstrap_p
+from tml.validation.uncertainty import (
+    pipeline_block_bootstrap_joint_ratings,
+    pipeline_block_bootstrap_p,
+)
 from tml.viz.plots import (
     plot_joint_rating_scatter,
     plot_probability_interval_strip,
@@ -67,6 +70,23 @@ def test_elo_only_swapped_targets_are_drawwise_complements() -> None:
         draws["target-ab"], draws["target-ba"], strict=True
     ):
         assert p_ab == pytest.approx(1.0 - p_ba)
+
+
+def test_pipeline_bootstrap_joint_ratings_are_paired_and_length_b() -> None:
+    ratings = pipeline_block_bootstrap_joint_ratings(
+        _history_with_swapped_targets(),
+        ["target-ab"],
+        B=5,
+        block_days=21,
+        seed=4,
+    )
+
+    assert len(ratings["target-ab"]) == 5
+    for rating_a, rating_b in ratings["target-ab"]:
+        assert rating_a == pytest.approx(float(rating_a))
+        assert rating_b == pytest.approx(float(rating_b))
+        assert abs(rating_a - 1500.0) < 500.0
+        assert abs(rating_b - 1500.0) < 500.0
 
 
 def test_probability_interval_strip_plots_intervals_on_p() -> None:

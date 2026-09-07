@@ -76,15 +76,32 @@ class _ApiEvent(BaseModel):
 _EVENTS = TypeAdapter(list[_ApiEvent])
 
 
+def _outcome_prices(outcomes: list[_ApiOutcome]) -> dict[str, float]:
+    """Map casefolded outcome names to prices; reject ambiguous duplicates."""
+    prices: dict[str, float] = {}
+    for outcome in outcomes:
+        key = outcome.name.casefold().strip()
+        if key in prices:
+            raise ValueError("h2h outcome names must be unique ignoring case")
+        prices[key] = outcome.price
+    return prices
+
+
 def _atomic_quotes(event: _ApiEvent, collected_at: datetime) -> list[QuoteRecord]:
     quotes: list[QuoteRecord] = []
+    home_key = event.home_team.casefold().strip()
+    away_key = event.away_team.casefold().strip()
     for bookmaker in event.bookmakers:
         for market in bookmaker.markets:
             if market.key != "h2h":
                 continue
-            prices = {outcome.name: outcome.price for outcome in market.outcomes}
-            if set(prices) != {event.home_team, event.away_team}:
-                raise ValueError("h2h must contain exactly both event sides")
+            try:
+                prices = _outcome_prices(market.outcomes)
+            except ValueError:
+                continue
+            if set(prices) != {home_key, away_key}:
+                # Skip books with Draw/extra sides or mismatched spelling.
+                continue
             quotes.append(
                 QuoteRecord(
                     event_id=event.id,
@@ -92,8 +109,8 @@ def _atomic_quotes(event: _ApiEvent, collected_at: datetime) -> list[QuoteRecord
                     bookmaker=bookmaker.key,
                     player_a=event.home_team,
                     player_b=event.away_team,
-                    price_a=prices[event.home_team],
-                    price_b=prices[event.away_team],
+                    price_a=prices[home_key],
+                    price_b=prices[away_key],
                     odds_format="american",
                     commence_time=event.commence_time,
                     schedule_observed_at=collected_at,
@@ -128,9 +145,14 @@ def fetch_h2h(
     base_url = str(settings.parlay_base_url).rstrip("/")
     path_key = urllib.parse.quote(sport_key, safe="")
     query = urllib.parse.urlencode({"markets": "h2h", "oddsFormat": "american"})
+    # Cloudflare rejects urllib's default User-Agent (HTTP 403 / error 1010).
     request = urllib.request.Request(
         f"{base_url}/sports/{path_key}/odds?{query}",
-        headers={"X-API-Key": api_key},
+        headers={
+            "X-API-Key": api_key,
+            "Accept": "application/json",
+            "User-Agent": "tml-research/0.1 (+https://github.com/local/tml)",
+        },
     )
     try:
         with urllib.request.urlopen(

@@ -83,6 +83,51 @@ def test_fetch_h2h_validates_api_json_and_uses_header_key(monkeypatch) -> None:
     assert secret not in captured_request.full_url
 
 
+def test_fetch_h2h_matches_outcome_names_case_insensitively(monkeypatch) -> None:
+    monkeypatch.setenv("PARLAY_API_KEY", "unit-test-secret")
+    get_settings.cache_clear()
+
+    def fake_urlopen(request, timeout):
+        return _Response(
+            [
+                {
+                    "id": "evt-case",
+                    "sport_key": "tennis_atp",
+                    "commence_time": "2026-09-06T20:00:00Z",
+                    "home_team": "Arthur Gea",
+                    "away_team": "Botic Van de Zandschulp",
+                    "bookmakers": [
+                        {
+                            "key": "prophetx",
+                            "last_update": "2026-09-06T19:50:00Z",
+                            "markets": [
+                                {
+                                    "key": "h2h",
+                                    "outcomes": [
+                                        {"name": "Arthur Gea", "price": 154},
+                                        {
+                                            "name": "Botic Van De Zandschulp",
+                                            "price": -158,
+                                        },
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    result = fetch_h2h(collected_at=datetime(2026, 9, 6, 19, 51, tzinfo=timezone.utc))
+
+    assert isinstance(result, Ok)
+    assert len(result.value) == 1
+    assert result.value[0].price_a == 154
+    assert result.value[0].price_b == -158
+
+
 def test_fetch_h2h_invalid_api_json_returns_safe_err(monkeypatch) -> None:
     monkeypatch.setenv("PARLAY_API_KEY", "unit-test-secret")
     get_settings.cache_clear()

@@ -15,7 +15,10 @@ from tml.validation.prequential import (
     PrequentialResult,
     run_prequential,
 )
-from tml.validation.uncertainty import pipeline_block_bootstrap_p
+from tml.validation.uncertainty import (
+    pipeline_block_bootstrap_joint_ratings,
+    pipeline_block_bootstrap_p,
+)
 
 __all__ = [
     "PrequentialConfig",
@@ -28,6 +31,7 @@ __all__ = [
     "final_era_primary_delta",
     "log_loss",
     "moving_block_ci_delta",
+    "pipeline_block_bootstrap_joint_ratings",
     "pipeline_block_bootstrap_p",
     "run_prequential",
 ]

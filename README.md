@@ -98,6 +98,7 @@ Thin wrappers under `notebooks/` import `tml` and outline the v1 pipeline (no du
 | `04_walkforward_validation.ipynb` | Prequential walk-forward and primary Δ |
 | `05_uncertainty_plots.ipynb` | Bootstrap intervals and ability plots |
 | `06_forward_odds.ipynb` | Observed quotes, no-vig, model–market gap |
+| `07_positive_ev.ipynb` | Bettable EV board vs observed prices (research only) |
 
 Run with Jupyter or VS Code; ensure `uv sync` has been run so `tml` is importable.
 
