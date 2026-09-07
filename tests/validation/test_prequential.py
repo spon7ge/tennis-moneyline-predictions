@@ -110,6 +110,7 @@ def test_output_schema_and_model_start_years_are_explicit(tmp_path) -> None:
 
     assert result.predictions.columns.tolist() == [
         "match_id",
+        "tourney_date",
         "year",
         "p_b0",
         "p_b1",

@@ -16,6 +16,7 @@ from tml.models.supervised import B2Model, fit_b0, fit_b2, predict_proba
 
 PREDICTION_COLUMNS = [
     "match_id",
+    "tourney_date",
     "year",
     "p_b0",
     "p_b1",
@@ -147,6 +148,7 @@ def _prediction_row(
 ) -> dict[str, object]:
     return {
         "match_id": match["match_id"],
+        "tourney_date": match["tourney_date"],
         "year": year,
         "p_b0": p_b0,
         "p_b1": p_b1,
