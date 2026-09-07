@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 import math
@@ -10,9 +11,10 @@ import pandas as pd
 from tml.features.builders import build_feature_row
 from tml.features.elo import EloState, update_tournament
 from tml.features.store import DEFAULT_FEATURE_PATH, FeatureStore
+from tml.models.calibration import fit_temperature, prequential_oof_scores
 from tml.models.elo_prob import elo_win_prob
 from tml.models.ranking_logit import B0Model
-from tml.models.supervised import B2Model, fit_b0, fit_b2, predict_proba
+from tml.models.supervised import B2Model, ScoreModel, fit_b0, fit_b2, predict_proba
 
 PREDICTION_COLUMNS = [
     "match_id",
@@ -65,8 +67,6 @@ class PrequentialConfig:
     final_era: tuple[int, int] = (2019, 2100)
     feature_store_path: str | Path = DEFAULT_FEATURE_PATH
     b2_feature_cols: tuple[str, ...] = DEFAULT_B2_FEATURE_COLUMNS
-    b0_temperature: float = 1.0
-    b2_temperature: float = 1.0
 
     def __post_init__(self) -> None:
         if self.rolling_years < 1:
@@ -80,12 +80,6 @@ class PrequentialConfig:
         for name, era in (("dev_era", self.dev_era), ("final_era", self.final_era)):
             if len(era) != 2 or era[0] > era[1]:
                 raise ValueError(f"{name} must be an inclusive (start, end) pair")
-        for name, value in (
-            ("b0_temperature", self.b0_temperature),
-            ("b2_temperature", self.b2_temperature),
-        ):
-            if not math.isfinite(value) or value <= 0:
-                raise ValueError(f"{name} must be finite and positive")
 
 
 @dataclass(frozen=True)
@@ -161,6 +155,37 @@ def _prediction_row(
     }
 
 
+def _oof_temperature(
+    train_rows: pd.DataFrame,
+    fit_fn: Callable[[pd.DataFrame], ScoreModel],
+) -> float:
+    try:
+        scores = prequential_oof_scores(train_rows, fit_fn)
+        outcomes = train_rows["y_complete_win"].to_numpy()
+        return fit_temperature(scores, outcomes)
+    except (ValueError, RuntimeError):
+        # Sparse windows can lack a usable earlier-year fold or both classes.
+        # Neutral T=1 preserves the uncalibrated antisymmetric model in that case.
+        return 1.0
+
+
+def _fit_supervised_year(
+    train_rows: pd.DataFrame,
+    feature_cols: tuple[str, ...],
+) -> tuple[B0Model, B2Model, float, float]:
+    def fit_b2_for_window(rows: pd.DataFrame) -> B2Model:
+        return fit_b2(rows, feature_cols)
+
+    b0_temperature = _oof_temperature(train_rows, fit_b0)
+    b2_temperature = _oof_temperature(train_rows, fit_b2_for_window)
+    return (
+        fit_b0(train_rows),
+        fit_b2_for_window(train_rows),
+        b0_temperature,
+        b2_temperature,
+    )
+
+
 def run_prequential(
     matches: pd.DataFrame,
     config: PrequentialConfig | None = None,
@@ -172,7 +197,7 @@ def run_prequential(
     state = EloState()
     history = ordered.iloc[0:0].copy()
     predictions: list[dict[str, object]] = []
-    supervised_models: dict[int, tuple[B0Model, B2Model]] = {}
+    supervised_models: dict[int, tuple[B0Model, B2Model, float, float]] = {}
 
     grouped = ordered.groupby(["tourney_date", "tourney_id"], sort=False)
     for (timestamp, _), tournament in grouped:
@@ -196,9 +221,8 @@ def run_prequential(
         if year >= resolved.supervised_from:
             if year not in supervised_models:
                 train_rows = _training_rows(store, year, resolved.rolling_years)
-                supervised_models[year] = (
-                    fit_b0(train_rows),
-                    fit_b2(train_rows, resolved.b2_feature_cols),
+                supervised_models[year] = _fit_supervised_year(
+                    train_rows, resolved.b2_feature_cols
                 )
             models = supervised_models[year]
 
@@ -220,14 +244,10 @@ def run_prequential(
             if models is not None:
                 feature_frame = pd.DataFrame([features])
                 p_b0 = float(
-                    predict_proba(
-                        models[0], feature_frame, T=resolved.b0_temperature
-                    )[0]
+                    predict_proba(models[0], feature_frame, T=models[2])[0]
                 )
                 p_b2 = float(
-                    predict_proba(
-                        models[1], feature_frame, T=resolved.b2_temperature
-                    )[0]
+                    predict_proba(models[1], feature_frame, T=models[3])[0]
                 )
             predictions.append(_prediction_row(match, year, p_b0, p_b1, p_b2))
 

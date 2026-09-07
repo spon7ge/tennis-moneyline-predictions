@@ -126,7 +126,7 @@ def _player_history_features(
         _mean([rates[index] for rates in serve_rates if rates[index] is not None])
         for index in range(3)
     ]
-    return _mean(wins) if wins else 0.0, len(results), *serve_means
+    return _mean(wins), len(results), *serve_means
 
 
 def _difference(a: float, b: float) -> float:

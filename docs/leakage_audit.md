@@ -59,12 +59,12 @@ When only `tourney_date` exists (Sackmann files):
 
 | Source | `available_at` policy |
 |--------|----------------------|
-| Match-embedded ranks | `tourney_date` — usable at pre-tournament cutoff |
-| Ranking snapshots | Usable iff `rank_as_of_date <= tourney_date` |
-| Conflicts | Prefer snapshot; flag conflict |
+| Match-embedded ranks | `tourney_date` — implemented v1 path used at pre-tournament cutoff |
+| Ranking snapshots | Policy only: usable iff `rank_as_of_date <= tourney_date`; **not implemented in v1** |
+| Conflicts | Planned policy: prefer snapshot and flag conflict; **not implemented in v1** |
 | Missing | `rank_missing=True`; no invented ranks |
 
-**Audit:** `tests/features/test_ranking.py` — embedded rank timing and antisymmetric `rank_diff`.
+**Audit:** `tests/features/test_ranking.py` — shipped embedded-rank timing and antisymmetric `rank_diff`.
 
 ## Frozen feature store
 

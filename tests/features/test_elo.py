@@ -60,6 +60,24 @@ def test_challenger_uses_different_k():
     assert abs(d_atp / d_ch - 2.0) < 1e-9
 
 
+def test_tournament_update_moves_overall_ratings():
+    state = EloState()
+    row = {
+        "player_a_id": "1",
+        "player_b_id": "2",
+        "y_complete_win": 1,
+        "surface": "Hard",
+        "best_of": 3,
+        "tour_level": "atp",
+    }
+
+    update_tournament(state, [row])
+
+    assert state.get("1", "Overall") > state.mu0
+    assert state.get("2", "Overall") < state.mu0
+    assert rating_diff(state, "1", "2", "Overall") > 0.0
+
+
 def test_tournament_batch_uses_pre_batch_state_for_all_expected_scores():
     state = EloState()
     state.set("1", "Hard", 1600)

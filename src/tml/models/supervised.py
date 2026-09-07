@@ -109,10 +109,12 @@ def fit_b0(train_df: pd.DataFrame) -> B0Model:
 def fit_b2(
     train_df: pd.DataFrame, feature_cols: list[str] | tuple[str, ...]
 ) -> B2Model:
-    """Fit B2 using train-only median imputation and antisymmetric scaling."""
+    """Fit B2 using zero imputation and antisymmetric scaling."""
     columns = _validate_feature_cols(feature_cols)
     matrix = _feature_matrix(train_df, columns)
-    imputer = SimpleImputer(strategy="median", keep_empty_features=True)
+    imputer = SimpleImputer(
+        strategy="constant", fill_value=0.0, keep_empty_features=True
+    )
     scaler = StandardScaler(with_mean=False)
     transformed = scaler.fit_transform(imputer.fit_transform(matrix))
     estimator = LogisticRegression(

@@ -54,7 +54,7 @@ Forward ParlayAPI scoring may use `pre_match` or `forward_live_info` — report 
 | B0 | Antisymmetric ranking logistic | Sanity baseline |
 | B1 | Surface Elo → antisymmetric score | Primary comparison baseline |
 | B2 | Rolling L2 logistic on difference features | Default supervised |
-| B2b / B3 | GBM / ensemble (dev-era candidates) | Selected on 2005–2018; reported on 2019+ |
+| B2b / B3 | GBM / ensemble candidates | **Out of v1; not implemented** |
 
 ### Structural symmetry
 
@@ -111,6 +111,7 @@ Metric CIs use moving multi-week tournament blocks (not IID match assumption).
 - No within-tournament features without verified timestamps
 - Challenger forward odds availability unconfirmed
 - CSV `tourney_date` granularity limits match-level prequential claims
+- Full multi-year corpus execution has not yet been completed; v1 verification uses automated tests and short smoke runs
 
 ## Ethical / honesty notes
 

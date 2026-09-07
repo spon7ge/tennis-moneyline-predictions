@@ -19,4 +19,4 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests
-        run: uv run pytest tests/shared tests/data/test_completion.py -v
+        run: uv run pytest

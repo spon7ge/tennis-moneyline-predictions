@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import tml.validation.prequential as prequential
 from tml.features.elo import EloState, update_tournament
 from tml.features.store import FeatureStore
 from tml.models.elo_prob import elo_win_prob
@@ -93,6 +94,46 @@ def test_supervised_fit_uses_persisted_original_cutoff_features(tmp_path) -> Non
     assert frozen.loc["m2", "elo_surface_diff"] == pytest.approx(16.0)
     assert frozen.loc["m3", "elo_surface_diff"] == pytest.approx(16.0)
     assert frozen.loc["m4", "elo_surface_diff"] != pytest.approx(16.0)
+
+
+def test_yearly_supervised_fit_uses_oof_temperatures(tmp_path, monkeypatch) -> None:
+    oof_calls: list[int] = []
+    fitted_temperatures = iter((2.0, 3.0))
+    prediction_temperatures: list[float] = []
+    real_predict_proba = prequential.predict_proba
+
+    def fake_oof_scores(train: pd.DataFrame, fit_fn: object) -> np.ndarray:
+        oof_calls.append(len(train))
+        return np.zeros(len(train), dtype=float)
+
+    def fake_fit_temperature(scores: np.ndarray, y: np.ndarray) -> float:
+        assert len(scores) == len(y)
+        return next(fitted_temperatures)
+
+    def recording_predict_proba(
+        model: object, frame: pd.DataFrame, T: float = 1.0
+    ) -> np.ndarray:
+        prediction_temperatures.append(T)
+        return real_predict_proba(model, frame, T=T)
+
+    monkeypatch.setattr(prequential, "prequential_oof_scores", fake_oof_scores)
+    monkeypatch.setattr(prequential, "fit_temperature", fake_fit_temperature)
+    monkeypatch.setattr(prequential, "predict_proba", recording_predict_proba)
+
+    run_prequential(
+        _timeline(),
+        PrequentialConfig(
+            burn_in_end=date(2000, 12, 31),
+            elo_from=2001,
+            supervised_from=2002,
+            rolling_years=1,
+            feature_store_path=tmp_path / "features.parquet",
+            b2_feature_cols=("elo_surface_diff",),
+        ),
+    )
+
+    assert oof_calls == [3, 3]
+    assert prediction_temperatures == [2.0, 3.0]
 
 
 def test_output_schema_and_model_start_years_are_explicit(tmp_path) -> None:

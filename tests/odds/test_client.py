@@ -21,7 +21,8 @@ class _Response:
 
 
 def test_fetch_h2h_missing_key_returns_safe_err(monkeypatch) -> None:
-    monkeypatch.delenv("PARLAY_API_KEY", raising=False)
+    # An explicit empty environment value must override a developer's .env file.
+    monkeypatch.setenv("PARLAY_API_KEY", "")
     get_settings.cache_clear()
 
     result = fetch_h2h()

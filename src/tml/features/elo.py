@@ -9,6 +9,7 @@ from tml.shared.invariant import invariant
 
 ELO_SCALE = 400.0 / math.log(10.0)
 BO5_DIFF_MULTIPLIER = 1.1
+OVERALL_SURFACE = "Overall"
 
 
 @dataclass
@@ -111,11 +112,20 @@ def update_tournament(
     for row, diff in zip(matches, diffs, strict=True):
         outcome = row["y_complete_win"]
         invariant(outcome in (0, 1), "completed outcome must be 0 or 1")
-        expected = expected_score(diff, 0.0, int(row["best_of"]))
-        delta = _k_factor(state, row["tour_level"]) * (float(outcome) - expected)
+        best_of = int(row["best_of"])
+        k_factor = _k_factor(state, row["tour_level"])
+        expected = expected_score(diff, 0.0, best_of)
+        delta = k_factor * (float(outcome) - expected)
         surface = row["surface"]
         deltas[(row["player_a_id"], surface)] += delta
         deltas[(row["player_b_id"], surface)] -= delta
+        overall_diff = rating_diff(
+            state, row["player_a_id"], row["player_b_id"], OVERALL_SURFACE
+        )
+        overall_expected = expected_score(overall_diff, 0.0, best_of)
+        overall_delta = k_factor * (float(outcome) - overall_expected)
+        deltas[(row["player_a_id"], OVERALL_SURFACE)] += overall_delta
+        deltas[(row["player_b_id"], OVERALL_SURFACE)] -= overall_delta
 
     prior_ratings = {
         key: state.get(player_id=key[0], surface=key[1]) for key in deltas

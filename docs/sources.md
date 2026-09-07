@@ -58,6 +58,10 @@ Each ingest run records:
 - Sorted manifest: `relative_path`, `size_bytes`, `sha256` per input file
 - `dataset_snapshot_id` = SHA-256 of the canonical serialized manifest
 - `ingested_at` (timezone-aware wall clock)
-- Sapling revision id and dirty-worktree flag when available (do not assume git)
+
+Planned reproducibility fields, **not recorded by the current v1 ingest path**:
+
+- Sapling revision id
+- Dirty-worktree flag
 
 Experiments must pin `dataset_snapshot_id` alongside model and feature schema versions.

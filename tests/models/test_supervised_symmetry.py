@@ -20,6 +20,22 @@ def test_b2_swap_players_complements_probability() -> None:
     assert np.allclose(p + p_swapped, 1.0, atol=1e-10)
 
 
+def test_b2_nan_difference_imputation_preserves_swap_complement() -> None:
+    train = pd.DataFrame(
+        {
+            "elo_surface_diff": [-3.0, -1.0, 2.0, 4.0, np.nan],
+            "y_complete_win": [0, 0, 1, 1, 0],
+        }
+    )
+    model = fit_b2(train, feature_cols=["elo_surface_diff"])
+    missing = pd.DataFrame({"elo_surface_diff": [np.nan]})
+
+    p = predict_proba(model, missing)
+    p_swapped = predict_proba(model, missing)
+
+    assert p[0] + p_swapped[0] == pytest.approx(1.0, abs=1e-12)
+
+
 def test_no_intercept_in_b2() -> None:
     df = pd.DataFrame(
         {
@@ -47,7 +63,7 @@ def test_b2_imputer_and_scaler_are_fit_on_training_data_only() -> None:
 
     predict_proba(model, pd.DataFrame({"elo_surface_diff": [10_000.0, np.nan]}))
 
-    assert model.imputer.statistics_[0] == pytest.approx(1.0)
+    assert model.imputer.statistics_[0] == pytest.approx(0.0)
     assert model.scaler.with_mean is False
     assert model.scaler.scale_[0] < 10.0
 

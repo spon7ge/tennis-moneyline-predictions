@@ -1,4 +1,5 @@
 from datetime import date
+import math
 
 import pandas as pd
 
@@ -53,8 +54,15 @@ def test_features_ignore_same_tournament_results() -> None:
     row_with = build_feature_row(_match(), state, history)
     row_without = build_feature_row(_match(), state, history.iloc[0:0])
 
-    assert row_with["form_diff"] == row_without["form_diff"]
+    assert math.isnan(row_with["form_diff"])
+    assert math.isnan(row_without["form_diff"])
     assert row_with["experience_diff"] == row_without["experience_diff"]
+
+
+def test_form_is_missing_when_players_have_no_prior_history() -> None:
+    row = build_feature_row(_match(), EloState(), pd.DataFrame())
+
+    assert math.isnan(row["form_diff"])
 
 
 def test_feature_row_uses_only_prior_tournaments_and_difference_features() -> None:
@@ -92,7 +100,7 @@ def test_feature_row_uses_only_prior_tournaments_and_difference_features() -> No
     assert row["elo_surface_diff"] == 100.0
     assert row["elo_overall_diff"] == 25.0
     assert row["elo_x_bestof"] == 200.0
-    assert row["form_diff"] == 1.0
+    assert math.isnan(row["form_diff"])
     assert row["experience_diff"] == 1
     assert row["age_diff"] == -2.0
     assert "rest_diff" not in row
